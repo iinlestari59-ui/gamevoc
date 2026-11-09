@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PETUALANGAN SEJARAH NUSANTARA: Misi Melawan Penjajahan Belanda</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel Standalone -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            user-select: none;
+        }
+        .font-game {
+            font-family: 'Fredoka', cursive;
+        }
+        /* Custom scrollbar for diagnostic panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(2deg); }
+        }
+        .animate-float {
+            animation: floatSlow 3s ease-in-out infinite;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.6); }
+            50% { box-shadow: 0 0 30px rgba(234, 179, 8, 0.9); }
+        }
+        .glow-active {
+            animation: pulseGlow 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen overflow-x-hidden select-none">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // --- WEB AUDIO SYNTHESIZER FOR SFX ---
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playBeep(freq = 440, type = 'sine', duration = 0.1, gainVal = 0.1) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+            playCorrect() {
+                if (!this.enabled) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playBeep(freq, 'triangle', 0.15, 0.2), i * 80);
+                });
+            }
+            playWrong() {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(90, this.ctx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+                } catch(e) {}
+            }
+            playHover() {
+                this.playBeep(400, 'sine', 0.05, 0.05);
+            }
+            playWinFanfare() {
+                if (!this.enabled) return;
+                const melody = [
+                    { f: 523.25, d: 0.15 }, { f: 659.25, d: 0.15 }, { f: 783.99, d: 0.15 },
+                    { f: 1046.50, d: 0.4 }, { f: 880, d: 0.2 }, { f: 1046.50, d: 0.6 }
+                ];
+                let time = 0;
+                melody.forEach(item => {
+                    setTimeout(() => this.playBeep(item.f, 'triangle', item.d, 0.25), time * 1000);
+                    time += item.d + 0.05;
+                });
+            }
+        }
+        const sfx = new SoundFX();
+
+        // --- QUESTION BANK DATA ---
+        const QUESTION_BANK = [
+            // LEVEL 1: VOC
+            {
+                level: 1,
+                levelTitle: "MISI 1: MENGENAL VOC",
+                question: "VOC didirikan oleh bangsa Belanda pada tahun berapa?",
+                options: ["1596", "1602", "1945"],
+                correctIndex: 1,
+                explanation: "VOC (Vereenigde Oostindische Compagnie) didirikan pada tahun 1602 sebagai kongsi dagang Belanda yang beroperasi di Asia."
+            },
+            {
+                level: 1,
+                levelTitle: "MISI 1: MENGENAL VOC",
+                question: "Apa tujuan utama pembentukan VOC di Nusantara?",
+                options: ["Menguasai perdagangan & keuntungan", "Membangun sekolah gratis untuk rakyat", "Mengakhiri perdagangan rempah-rempah"],
+                correctIndex: 0,
+                explanation: "VOC dibentuk untuk memperkuat posisi dagang Belanda dan memperoleh keuntungan sebesar-besarnya dari perdagangan rempah-rempah."
+            },
+            {
+                level: 1,
+                levelTitle: "MISI 1: MENGENAL VOC",
+                question: "Apa yang dimaksud dengan Hak Oktroi yang dimiliki VOC?",
+                options: ["Hak mengelola sekolah rakyat", "Hak istimewa dari pemerintah Belanda", "Hak rakyat untuk memilih pemimpin"],
+                correctIndex: 1,
+                explanation: "Hak Oktroi memberikan kewenangan khusus kepada VOC seperti hak mencetak uang, memiliki tentara, dan melakukan monopoli perdagangan."
+            },
+            // LEVEL 2: TANAM PAKSA
+            {
+                level: 2,
+                levelTitle: "MISI 2: SISTEM TANAM PAKSA",
+                question: "Siapakah tokoh yang memperkenalkan sistem tanam paksa pada tahun 1830?",
+                options: ["Herman Willem Daendels", "Johannes van den Bosch", "C. Th. van Deventer"],
+                correctIndex: 1,
+                explanation: "Johannes van den Bosch menerapkan sistem Cultuurstelsel (Tanam Paksa) untuk mengisi kembali kas negara Belanda yang kosong."
+            },
+            {
+                level: 2,
+                levelTitle: "MISI 2: SISTEM TANAM PAKSA",
+                question: "Apa pengertian utama dari Cultuurstelsel (Tanam Paksa)?",
+                options: ["Sistem pendidikan anak pribumi", "Sistem perdagangan bebas", "Sistem wajib menanam tanaman ekspor untuk kolonial"],
+                correctIndex: 2,
+                explanation: "Cultuurstelsel mewajibkan petani menanam tanaman ekspor seperti kopi, nila, dan tebu untuk diserahkan kepada Belanda."
+            },
+            {
+                level: 2,
+                levelTitle: "MISI 2: SISTEM TANAM PAKSA",
+                question: "Salah satu dampak buruk tanam paksa bagi rakyat Indonesia adalah ....",
+                options: ["Bertambahnya penderitaan & kelaparan", "Seluruh rakyat menjadi kaya raya", "Petani langsung mendapat pendidikan tinggi"],
+                correctIndex: 0,
+                explanation: "Pelaksanaan tanam paksa yang sewenang-wenang menyebabkan kemiskinan, kelaparan, dan penderitaan berat bagi rakyat."
+            },
+            // LEVEL 3: POLITIK ETIS
+            {
+                level: 3,
+                levelTitle: "MISI 3: POLITIK ETIS",
+                question: "Siapa tokoh Belanda yang menulis karya 'Een Eereschuld' (Utang Kehormatan)?",
+                options: ["C. Th. van Deventer", "Johannes van den Bosch", "Jan Pieterszoon Coen"],
+                correctIndex: 0,
+                explanation: "Conrad Theodor van Deventer mengkritik pemerintah Belanda dan mengusulkan Politik Etis sebagai bentuk balas budi."
+            },
+            {
+                level: 3,
+                levelTitle: "MISI 3: POLITIK ETIS",
+                question: "Apa saja tiga program utama dalam Trias van Deventer?",
+                options: ["Edukasi, Irigasi, dan Emigrasi", "Perdagangan, Peperangan, Pelayaran", "Monopoli, Kerja Paksa, Penyerahan Hasil"],
+                correctIndex: 0,
+                explanation: "Trias van Deventer mencakup Edukasi (pendidikan), Irigasi (pengairan), dan Emigrasi (perpindahan penduduk)."
+            },
+            {
+                level: 3,
+                levelTitle: "MISI 3: POLITIK ETIS",
+                question: "Apa dampak Politik Etis dalam bidang pendidikan bagi pribumi?",
+                options: ["Sekolah langsung ditutup semua", "Peluang pendidikan pribumi mulai berkembang", "Semua rakyat langsung berpendidikan setara"],
+                correctIndex: 1,
+                explanation: "Politik Etis melahirkan sekolah-sekolah baru yang nantinya melahirkan kaum terpelajar pelopor pergerakan nasional."
+            },
+            // LEVEL 4: KEHIDUPAN MASYARAKAT
+            {
+                level: 4,
+                levelTitle: "MISI 4: KEHIDUPAN MASYARAKAT",
+                question: "Bagaimana struktur kehidupan sosial masyarakat pada masa penjajahan Belanda?",
+                options: ["Kedudukan semua rakyat sama", "Tidak ada diskriminasi dalam masyarakat", "Terdapat pelapisan sosial & ketidaksetaraan"],
+                correctIndex: 2,
+                explanation: "Masyarakat dibagi menjadi tingkatan sosial: Bangsa Eropa (teratas), Timur Asing (tengah), dan Pribumi (terbawah)."
+            },
+            {
+                level: 4,
+                levelTitle: "MISI 4: KEHIDUPAN MASYARAKAT",
+                question: "Bagaimana kesempatan sekolah bagi sebagian besar rakyat pribumi saat itu?",
+                options: ["Setara dengan sekolah anak Eropa", "Terbatas dan tidak merata", "Bebas memilih sekolah tanpa biaya"],
+                correctIndex: 1,
+                explanation: "Akses sekolah sangat dibatasi hanya untuk kalangan bangsawan atau pegawai pemerintah kolonial saja."
+            },
+            {
+                level: 4,
+                levelTitle: "MISI 4: KEHIDUPAN MASYARAKAT",
+                question: "Pengaruh penjajahan terhadap kebudayaan di Indonesia ditunjukkan dengan ....",
+                options: ["Budaya lokal hilang total", "Tidak pernah terjadi perubahan", "Pertemuan & percampuran unsur budaya"],
+                correctIndex: 2,
+                explanation: "Terjadi serapan kosakata bahasa, gaya arsitektur bangunan, serta makanan (akulturasi budaya) dengan budaya lokal tetap bertahan."
+            },
+            // LEVEL 5: PAHLAWAN SEJARAH
+            {
+                level: 5,
+                levelTitle: "MISI 5: PAHLAWAN SEJARAH",
+                question: "Mengapa monopoli perdagangan VOC sangat merugikan pedagang lokal?",
+                options: ["Membatasi kebebasan & mengendalikan harga", "VOC membagikan keuntungan ke rakyat", "Meningkatkan kesejahteraan pedagang lokal"],
+                correctIndex: 0,
+                explanation: "Monopoli melarang pedagang lokal menjual hasil bumi ke pihak lain dan menentukan harga beli secara sepihak."
+            },
+            {
+                level: 5,
+                levelTitle: "MISI 5: PAHLAWAN SEJARAH",
+                question: "Siapa pemimpin Perang Jawa (1825–1830) melawan kesewenang-wenangan Belanda?",
+                options: ["Pattimura", "Pangeran Diponegoro", "Sultan Hasanuddin"],
+                correctIndex: 1,
+                explanation: "Pangeran Diponegoro memimpin perlawanan perang gerilya terbesar di pulau Jawa melawan penjajahan Belanda."
+            },
+            {
+                level: 5,
+                levelTitle: "MISI 5: PAHLAWAN SEJARAH",
+                question: "Apa nilai luhur utama yang dapat kita teladani dari para pahlawan bangsa?",
+                options: ["Mencari keuntungan pribadi", "Menghindari rasa persatuan", "Menjaga persatuan, keberanian, & cinta tanah air"],
+                correctIndex: 2,
+                explanation: "Semangat persatuan, pantang menyerah, dan cinta tanah air adalah kunci utama perjuangan bangsa Indonesia."
+            }
+        ];
+
+        // --- SVG BEE COMPONENT ---
+        const BeeIcon = ({ letter, isSelected, state }) => {
+            let bgClass = "bg-amber-400 border-amber-600 text-amber-950";
+            if (state === 'correct') bgClass = "bg-emerald-500 border-emerald-700 text-white animate-bounce";
+            if (state === 'wrong') bgClass = "bg-rose-500 border-rose-700 text-white";
+
+            return (
+                <div className={`relative flex flex-col items-center transition-all duration-300 ${isSelected ? 'scale-105' : 'scale-100'}`}>
+                    {/* SVG Bee Graphic */}
+                    <svg className="w-24 h-24 sm:w-28 sm:h-28 animate-float drop-shadow-lg" viewBox="0 0 100 100">
+                        {/* Wings */}
+                        <g fill="#e0f2fe" opacity="0.8">
+                            <ellipse cx="35" cy="25" rx="14" ry="22" transform="rotate(-30 35 25)" />
+                            <ellipse cx="65" cy="25" rx="14" ry="22" transform="rotate(30 65 25)" />
+                        </g>
+                        {/* Bee Body */}
+                        <ellipse cx="50" cy="55" rx="32" ry="28" fill="#f59e0b" />
+                        {/* Body Stripes */}
+                        <path d="M 24 50 Q 50 54 76 50 Q 76 60 50 64 Q 24 60 24 50 Z" fill="#1e293b" />
+                        <path d="M 28 68 Q 50 72 72 68 Q 68 76 50 79 Q 32 76 28 68 Z" fill="#1e293b" />
+                        {/* Stinger */}
+                        <polygon points="50,83 45,92 55,92" fill="#0f172a" />
+                        {/* Eyes */}
+                        <circle cx="40" cy="45" r="5" fill="#0f172a" />
+                        <circle cx="60" cy="45" r="5" fill="#0f172a" />
+                        <circle cx="38" cy="43" r="2" fill="#ffffff" />
+                        <circle cx="58" cy="43" r="2" fill="#ffffff" />
+                        {/* Smile */}
+                        <path d="M 43 55 Q 50 60 57 55" fill="none" stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" />
+                        {/* Antennae */}
+                        <path d="M 42 30 Q 38 18 30 15" fill="none" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
+                        <circle cx="30" cy="15" r="3.5" fill="#eab308" />
+                        <path d="M 58 30 Q 62 18 70 15" fill="none" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
+                        <circle cx="70" cy="15" r="3.5" fill="#eab308" />
+                    </svg>
+
+                    {/* Letter Badge */}
+                    <div className={`mt-2 w-12 h-12 rounded-full border-4 flex items-center justify-center font-game font-bold text-2xl shadow-md ${bgClass}`}>
+                        {letter}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP COMPONENT ---
+        function NusantaraApp() {
+            // Game Flow States
+            const [gameState, setGameState] = useState('START'); // START, PLAYING, EXPLANATION, LEVEL_WIN, GAME_OVER
+            const [gameMode, setGameMode] = useState('INDIVIDUAL'); // INDIVIDUAL, CLASS_CHALLENGE
+            const [teamNames, setTeamNames] = useState({ team1: "Tim Diponegoro", team2: "Tim Pattimura" });
+            const [currentTurn, setCurrentTurn] = useState('team1');
+            const [teamScores, setTeamScores] = useState({ team1: 0, team2: 0 });
+
+            // Questions & Level Progression
+            const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+            const [score, setScore] = useState(0);
+            const [stats, setStats] = useState({ correct: 0, incorrect: 0, levelScores: [0,0,0,0,0] });
+            const [shuffledQuestions, setShuffledQuestions] = useState([]);
+            
+            // Selection & Feedback
+            const [selectedOption, setSelectedOption] = useState(null);
+            const [feedbackState, setFeedbackState] = useState(null); // 'correct', 'wrong'
+            const [isLocked, setIsLocked] = useState(false);
+
+            // Audio & Screen Settings
+            const [soundEnabled, setSoundEnabled] = useState(true);
+            const [showInstructions, setShowInstructions] = useState(false);
+            const [showDiagnostics, setShowDiagnostics] = useState(false);
+            
+            // Camera & MediaPipe Tracking States
+            const [cameraActive, setCameraActive] = useState(false);
+            const [modelStatus, setModelStatus] = useState('Standby'); // Loading, Ready, Error, Off
+            const [handDetected, setHandDetected] = useState(false);
+            const [fingertipPos, setFingertipPos] = useState({ x: -100, y: -100 });
+            const [normalizedLandmark, setNormalizedLandmark] = useState({ x: 0, y: 0 });
+            const [targetedBee, setTargetedBee] = useState(null);
+            const [dwellProgress, setDwellProgress] = useState(0);
+            
+            // Camera Tuning Settings
+            const [sensitivity, setSensitivity] = useState(0.65); // EMA Alpha
+            const [dwellTimeTarget, setDwellTimeTarget] = useState(1000); // Ms to complete click
+
+            // Refs for Camera & MediaPipe Loop
+            const videoRef = useRef(null);
+            const canvasOverlayRef = useRef(null);
+            const confettiCanvasRef = useRef(null);
+            const landmarkerRef = useRef(null);
+            const animFrameRef = useRef(null);
+            const dwellStartTimeRef = useRef(null);
+            const lastTargetRef = useRef(null);
+            const smoothedPosRef = useRef({ x: 0.5, y: 0.5 });
+            const answerCardsRef = useRef([]);
+
+            // Sync Sound FX Toggle
+            useEffect(() => {
+                sfx.enabled = soundEnabled;
+            }, [soundEnabled]);
+
+            // Initialize Shuffled Questions on Game Start
+            const startNewGame = (mode = 'INDIVIDUAL') => {
+                setGameMode(mode);
+                const shuffled = [...QUESTION_BANK].sort(() => Math.random() - 0.5);
+                setShuffledQuestions(shuffled);
+                setCurrentQuestionIdx(0);
+                setScore(0);
+                setStats({ correct: 0, incorrect: 0, levelScores: [0,0,0,0,0] });
+                setTeamScores({ team1: 0, team2: 0 });
+                setCurrentTurn('team1');
+                setSelectedOption(null);
+                setFeedbackState(null);
+                setIsLocked(false);
+                setGameState('PLAYING');
+                sfx.playBeep(600, 'sine', 0.1);
+            };
+
+            // Canvas Confetti Burst Effect
+            const triggerConfetti = () => {
+                const canvas = confettiCanvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+                const particles = [];
+                const colors = ['#f59e0b', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6'];
+                for (let i = 0; i < 70; i++) {
+                    particles.push({
+                        x: canvas.width / 2,
+                        y: canvas.height / 3,
+                        vx: (Math.random() - 0.5) * 16,
+                        vy: (Math.random() - 0.7) * 16,
+                        size: Math.random() * 8 + 4,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        rotation: Math.random() * 360,
+                        rotSpeed: (Math.random() - 0.5) * 10,
+                        opacity: 1
+                    });
+                }
+
+                let frame = 0;
+                const renderParticles = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    particles.forEach(p => {
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += 0.4; // gravity
+                        p.opacity -= 0.015;
+                        p.rotation += p.rotSpeed;
+
+                        ctx.save();
+                        ctx.globalAlpha = Math.max(0, p.opacity);
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate((p.rotation * Math.PI) / 180);
+                        ctx.fillStyle = p.color;
+                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                        ctx.restore();
+                    });
+
+                    frame++;
+                    if (frame < 80) {
+                        requestAnimationFrame(renderParticles);
+                    } else {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+                };
+                renderParticles();
+            };
+
+            // Initialize MediaPipe Tasks Vision
+            const initMediaPipe = async () => {
+                if (landmarkerRef.current) return true;
+                setModelStatus('Loading');
+                try {
+                    const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm");
+                    const filesetResolver = await vision.FilesetResolver.forVisionTasks(
+                        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+                    );
+                    const handLandmarker = await vision.HandLandmarker.createFromOptions(filesetResolver, {
+                        baseOptions: {
+                            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                            delegate: "GPU"
+                        },
+                        runningMode: "VIDEO",
+                        numHands: 1
+                    });
+                    landmarkerRef.current = handLandmarker;
+                    setModelStatus('Ready');
+                    return true;
+                } catch (err) {
+                    console.error("Gagal memuat MediaPipe:", err);
+                    setModelStatus('Error');
+                    return false;
+                }
+            };
+
+            // Toggle Camera Access & Tracking
+            const toggleCamera = async () => {
+                if (cameraActive) {
+                    // Stop Camera
+                    if (videoRef.current && videoRef.current.srcObject) {
+                        const tracks = videoRef.current.srcObject.getTracks();
+                        tracks.forEach(track => track.stop());
+                        videoRef.current.srcObject = null;
+                    }
+                    if (animFrameRef.current) {
+                        cancelAnimationFrame(animFrameRef.current);
+                    }
+                    setCameraActive(false);
+                    setHandDetected(false);
+                    return;
+                }
+
+                // Start Camera
+                const ready = await initMediaPipe();
+                if (!ready && modelStatus === 'Error') {
+                    alert("Gagal memuat sistem pelacakan tangan MediaPipe. Pastikan koneksi internet stabil.");
+                    return;
+                }
+
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
+                    });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        videoRef.current.onloadedmetadata = () => {
+                            videoRef.current.play();
+                            setCameraActive(true);
+                        };
+                    }
+                } catch (err) {
+                    console.error("Akses kamera ditolak atau tidak tersedia:", err);
+                    alert("Kamera tidak dapat diakses. Mohon beri izin akses webcam pada browser Anda.");
+                    setCameraActive(false);
+                }
+            };
+
+            // Real-Time Frame Detection Loop
+            const processVideoFrame = useCallback(() => {
+                if (!videoRef.current || !landmarkerRef.current || videoRef.current.readyState < 2) {
+                    animFrameRef.current = requestAnimationFrame(processVideoFrame);
+                    return;
+                }
+
+                const video = videoRef.current;
+                const startTimeMs = performance.now();
+                const results = landmarkerRef.current.detectForVideo(video, startTimeMs);
+
+                if (results.landmarks && results.landmarks.length > 0) {
+                    setHandDetected(true);
+                    const landmark8 = results.landmarks[0][8]; // Index Fingertip
+                    
+                    // Mirror X coordinate for natural mirror control
+                    const rawX = 1 - landmark8.x;
+                    const rawY = landmark8.y;
+                    setNormalizedLandmark({ x: rawX, y: rawY });
+
+                    // Exponential Moving Average (EMA) Smoothing
+                    const currentSmoothed = smoothedPosRef.current;
+                    const smoothedX = currentSmoothed.x * sensitivity + rawX * (1 - sensitivity);
+                    const smoothedY = currentSmoothed.y * sensitivity + rawY * (1 - sensitivity);
+                    smoothedPosRef.current = { x: smoothedX, y: smoothedY };
+
+                    // Map to Window Screen Coordinates
+                    const screenX = smoothedX * window.innerWidth;
+                    const screenY = smoothedY * window.innerHeight;
+                    setFingertipPos({ x: screenX, y: screenY });
+
+                    // Check Collision / Hovering over Answer Bee Cards
+                    if (gameState === 'PLAYING' && !isLocked) {
+                        let hoveredIdx = null;
+                        answerCardsRef.current.forEach((cardEl, idx) => {
+                            if (!cardEl) return;
+                            const rect = cardEl.getBoundingClientRect();
+                            if (
+                                screenX >= rect.left &&
+                                screenX <= rect.right &&
+                                screenY >= rect.top &&
+                                screenY <= rect.bottom
+                            ) {
+                                hoveredIdx = idx;
+                            }
+                        });
+
+                        setTargetedBee(hoveredIdx);
+
+                        // Handle Dwell Selection Logic
+                        if (hoveredIdx !== null) {
+                            if (lastTargetRef.current !== hoveredIdx) {
+                                // New target hovered
+                                dwellStartTimeRef.current = performance.now();
+                                lastTargetRef.current = hoveredIdx;
+                                sfx.playHover();
+                            } else {
+                                // Calculate dwell progress
+                                const elapsed = performance.now() - dwellStartTimeRef.current;
+                                const progress = Math.min(100, (elapsed / dwellTimeTarget) * 100);
+                                setDwellProgress(progress);
+
+                                // Trigger selection on complete dwell
+                                if (elapsed >= dwellTimeTarget && !isLocked) {
+                                    handleSelectAnswer(hoveredIdx);
+                                    dwellStartTimeRef.current = null;
+                                    lastTargetRef.current = null;
+                                    setDwellProgress(0);
+                                }
+                            }
+                        } else {
+                            // Reset Dwell
+                            dwellStartTimeRef.current = null;
+                            lastTargetRef.current = null;
+                            setDwellProgress(0);
+                        }
+                    }
+                } else {
+                    setHandDetected(false);
+                    setTargetedBee(null);
+                    setDwellProgress(0);
+                    dwellStartTimeRef.current = null;
+                    lastTargetRef.current = null;
+                }
+
+                animFrameRef.current = requestAnimationFrame(processVideoFrame);
+            }, [gameState, isLocked, sensitivity, dwellTimeTarget]);
+
+            // Manage Detection Loop Animation Frame
+            useEffect(() => {
+                if (cameraActive) {
+                    animFrameRef.current = requestAnimationFrame(processVideoFrame);
+                } else {
+                    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+                }
+                return () => {
+                    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+                };
+            }, [cameraActive, processVideoFrame]);
+
+            // Handle Answer Selection
+            const handleSelectAnswer = (optionIndex) => {
+                if (isLocked || gameState !== 'PLAYING') return;
+                setIsLocked(true);
+                setSelectedOption(optionIndex);
+
+                const currentQ = shuffledQuestions[currentQuestionIdx];
+                const isCorrect = optionIndex === currentQ.correctIndex;
+
+                if (isCorrect) {
+                    setFeedbackState('correct');
+                    sfx.playCorrect();
+                    triggerConfetti();
+
+                    // Score calculation
+                    if (gameMode === 'INDIVIDUAL') {
+                        setScore(prev => prev + 100);
+                        setStats(prev => {
+                            const newLevelScores = [...prev.levelScores];
+                            newLevelScores[currentQ.level - 1] += 100;
+                            return {
+                                ...prev,
+                                correct: prev.correct + 1,
+                                levelScores: newLevelScores
+                            };
+                        });
+                    } else {
+                        // Class mode team score
+                        setTeamScores(prev => ({
+                            ...prev,
+                            [currentTurn]: prev[currentTurn] + 100
+                        }));
+                        setStats(prev => ({ ...prev, correct: prev.correct + 1 }));
+                    }
+                } else {
+                    setFeedbackState('wrong');
+                    sfx.playWrong();
+                    setStats(prev => ({ ...prev, incorrect: prev.incorrect + 1 }));
+                }
+
+                // Show Explanation Modal after brief highlight delay
+                setTimeout(() => {
+                    setGameState('EXPLANATION');
+                }, 1200);
+            };
+
+            // Move to Next Question or Level Complete
+            const handleNextQuestion = () => {
+                setSelectedOption(null);
+                setFeedbackState(null);
+                setIsLocked(false);
+
+                // Switch turn in class challenge mode
+                if (gameMode === 'CLASS_CHALLENGE') {
+                    setCurrentTurn(prev => (prev === 'team1' ? 'team2' : 'team1'));
+                }
+
+                if (currentQuestionIdx + 1 < shuffledQuestions.length) {
+                    const nextIdx = currentQuestionIdx + 1;
+                    setCurrentQuestionIdx(nextIdx);
+
+                    // Check if Level Complete (Every 3 questions)
+                    if (nextIdx % 3 === 0) {
+                        sfx.playWinFanfare();
+                        setGameState('LEVEL_WIN');
+                    } else {
+                        setGameState('PLAYING');
+                    }
+                } else {
+                    // Game Complete
+                    sfx.playWinFanfare();
+                    setGameState('GAME_OVER');
+                }
+            };
+
+            // Fullscreen Toggle
+            const toggleFullscreen = () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {});
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                }
+            };
+
+            // Download HTML App File Trigger
+            const downloadHTMLFile = () => {
+                const htmlContent = document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'Petualangan_Sejarah_Nusantara.html';
+                link.click();
+            };
+
+            // Get Badge Title according to score
+            const getBadgeTitle = (finalScore) => {
+                if (finalScore >= 1400) return " Penjaga Sejarah Nusantara";
+                if (finalScore >= 1100) return " Cendekiawan Politik Etis";
+                if (finalScore >= 800) return " Penakluk Misi Tanam Paksa";
+                if (finalScore >= 500) return " Ahli VOC Nusantara";
+                return " Penjelajah Pemula";
+            };
+
+            const currentQ = shuffledQuestions[currentQuestionIdx] || QUESTION_BANK[0];
+            const currentLevelNum = Math.floor(currentQuestionIdx / 3) + 1;
+
+            return (
+                <div className="relative w-full min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between overflow-hidden">
+                    {/* Confetti Particle Canvas Overlay */}
+                    <canvas ref={confettiCanvasRef} className="pointer-events-none fixed inset-0 z-50" />
+
+                    {/* Virtual Finger Glowing Cursor */}
+                    {cameraActive && handDetected && (
+                        <div 
+                            className="pointer-events-none fixed z-50 transition-transform duration-75 ease-out transform -translate-x-1/2 -translate-y-1/2"
+                            style={{ left: `${fingertipPos.x}px`, top: `${fingertipPos.y}px` }}
+                        >
+                            <div className="relative flex items-center justify-center">
+                                {/* Outer Glow Ring */}
+                                <div className="w-12 h-12 rounded-full border-2 border-yellow-400 bg-yellow-400/30 animate-ping absolute" />
+                                {/* Main Cursor Circle */}
+                                <div className="w-8 h-8 rounded-full bg-yellow-400 border-2 border-white shadow-[0_0_20px_rgba(250,204,21,1)] flex items-center justify-center">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-slate-900" />
+                                </div>
+                                {/* Dwell Selection Radial Ring */}
+                                {dwellProgress > 0 && (
+                                    <svg className="w-16 h-16 absolute -inset-2 transform -rotate-90">
+                                        <circle
+                                            cx="32" cy="32" r="26"
+                                            stroke="rgba(255,255,255,0.3)"
+                                            strokeWidth="5"
+                                            fill="transparent"
+                                        />
+                                        <circle
+                                            cx="32" cy="32" r="26"
+                                            stroke="#eab308"
+                                            strokeWidth="5"
+                                            fill="transparent"
+                                            strokeDasharray={2 * Math.PI * 26}
+                                            strokeDashoffset={(2 * Math.PI * 26) * (1 - dwellProgress / 100)}
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TOP HEADER / BAR */}
+                    <header className="bg-slate-800/90 backdrop-blur border-b border-slate-700 px-4 py-3 flex items-center justify-between z-30 shadow-lg">
+                        <div className="flex items-center space-x-3">
+                            <span className="text-3xl">⛵</span>
+                            <div>
+                                <h1 className="font-game font-bold text-xl sm:text-2xl text-amber-400 leading-none">
+                                    PETUALANGAN SEJARAH NUSANTARA
+                                </h1>
+                                <p className="text-xs text-slate-300 font-medium">Misi Melawan Penjajahan Belanda — SD Kelas VI</p>
+                            </div>
+                        </div>
+
+                        {/* Control Buttons & Sensor Status */}
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                            {/* Camera Toggle Button */}
+                            <button
+                                onClick={toggleCamera}
+                                className={`px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm flex items-center space-x-1.5 transition ${
+                                    cameraActive ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                                }`}
+                            >
+                                <span>📷</span>
+                                <span className="hidden sm:inline">{cameraActive ? 'Kamera Aktif' : 'Aktifkan Kamera'}</span>
+                            </button>
+
+                            {/* Sound Toggle */}
+                            <button
+                                onClick={() => setSoundEnabled(!soundEnabled)}
+                                className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-200 transition text-sm"
+                                title="Pengaturan Suara"
+                            >
+                                {soundEnabled ? '🔊' : '🔇'}
+                            </button>
+
+                            {/* Diagnostic Panel Toggle */}
+                            <button
+                                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                                className={`p-2 rounded-xl transition text-sm ${showDiagnostics ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}`}
+                                title="Panel Diagnostik Guru"
+                            >
+                                🛠️
+                            </button>
+
+                            {/* Fullscreen Button */}
+                            <button
+                                onClick={toggleFullscreen}
+                                className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-200 transition text-sm hidden md:block"
+                                title="Layar Penuh"
+                            >
+                                ⛶
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* LIVE CAMERA PREVIEW PIP BOX */}
+                    <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start pointer-events-none">
+                        <div className="relative w-36 h-28 sm:w-48 sm:h-36 bg-slate-950 border-2 border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
+                            <video
+                                ref={videoRef}
+                                className="w-full h-full object-cover transform -scale-x-100"
+                                playsInline
+                                muted
+                            />
+                            {/* Status Indicator Bar */}
+                            <div className="absolute top-1 left-1 right-1 bg-slate-900/80 backdrop-blur rounded-lg px-2 py-0.5 text-[10px] font-bold flex items-center justify-between">
+                                <span className="flex items-center space-x-1">
+                                    <span className={`w-2 h-2 rounded-full ${cameraActive ? (handDetected ? 'bg-emerald-400 animate-ping' : 'bg-amber-400') : 'bg-rose-500'}`} />
+                                    <span>{cameraActive ? (handDetected ? 'Tangan Terdeteksi' : 'Mencari Tangan...') : 'Kamera Mati'}</span>
+                                </span>
+                            </div>
+                            {!cameraActive && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/90 text-slate-400 text-xs text-center p-2">
+                                    Kamera Nonaktif<br/>(Gunakan Touch/Mouse)
+                                </div>
+                            )}
+                        </div>
+                        {cameraActive && !handDetected && (
+                            <div className="mt-2 bg-amber-500/90 text-slate-950 font-bold text-xs px-3 py-1 rounded-full shadow-lg animate-bounce">
+                                ✋ Arahkan telunjuk ke kamera
+                            </div>
+                        )}
+                    </div>
+
+                    {/* DIAGNOSTIC PANEL FOR TEACHERS */}
+                    {showDiagnostics && (
+                        <div className="fixed top-16 right-4 z-50 w-80 bg-slate-800/95 border-2 border-amber-500 rounded-2xl p-4 shadow-2xl text-xs space-y-3">
+                            <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                                <h3 className="font-bold text-amber-400 flex items-center space-x-1">
+                                    <span>🛠️</span>
+                                    <span>Panel Diagnostik Guru</span>
+                                </h3>
+                                <button onClick={() => setShowDiagnostics(false)} className="text-slate-400 hover:text-white">✕</button>
+                            </div>
+                            
+                            <div className="space-y-1.5 font-mono text-[11px] bg-slate-900 p-2.5 rounded-xl text-slate-300">
+                                <div>Kamera: <span className={cameraActive ? "text-emerald-400" : "text-rose-400"}>{cameraActive ? "AKTIF" : "NONAKTIF"}</span></div>
+                                <div>Model Vision: <span className="text-amber-300">{modelStatus}</span></div>
+                                <div>Tangan Terdeteksi: <span className={handDetected ? "text-emerald-400 font-bold" : "text-slate-500"}>{handDetected ? "YA" : "TIDAK"}</span></div>
+                                <div>Landmark Jari #8: X={normalizedLandmark.x.toFixed(2)}, Y={normalizedLandmark.y.toFixed(2)}</div>
+                                <div>Posisi Kursor: X={Math.round(fingertipPos.x)}px, Y={Math.round(fingertipPos.y)}px</div>
+                                <div>Target Bee: <span className="text-amber-400 font-bold">{targetedBee !== null ? `Pilihan ${String.fromCharCode(65 + targetedBee)}` : 'Tidak Ada'}</span></div>
+                                <div>Progress Tahan: <span className="text-cyan-400 font-bold">{Math.round(dwellProgress)}%</span></div>
+                            </div>
+
+                            <div className="space-y-2 pt-1 border-t border-slate-700">
+                                <div>
+                                    <label className="block text-slate-300 text-[11px] mb-1">Kehalusan Kursor (Smoothing): {sensitivity.toFixed(2)}</label>
+                                    <input
+                                        type="range" min="0.3" max="0.9" step="0.05"
+                                        value={sensitivity}
+                                        onChange={(e) => setSensitivity(parseFloat(e.target.value))}
+                                        className="w-full accent-amber-400 h-1.5 bg-slate-700 rounded-lg cursor-pointer"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-slate-300 text-[11px] mb-1">Durasi Tahan Pilihan: {dwellTimeTarget} ms</label>
+                                    <input
+                                        type="range" min="600" max="1800" step="100"
+                                        value={dwellTimeTarget}
+                                        onChange={(e) => setDwellTimeTarget(parseInt(e.target.value))}
+                                        className="w-full accent-amber-400 h-1.5 bg-slate-700 rounded-lg cursor-pointer"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MAIN GAME CONTAINER AREA */}
+                    <main className="flex-1 flex flex-col justify-center items-center px-4 py-6 max-w-6xl mx-auto w-full relative z-10">
+
+                        {/* 1. START SCREEN */}
+                        {gameState === 'START' && (
+                            <div className="w-full flex flex-col items-center text-center space-y-6">
+                                {/* Hero Title Banner */}
+                                <div className="bg-gradient-to-r from-amber-500/20 via-blue-500/20 to-amber-500/20 p-6 sm:p-8 rounded-3xl border border-amber-500/30 backdrop-blur-md max-w-3xl w-full shadow-2xl">
+                                    <div className="flex justify-center space-x-4 text-4xl sm:text-5xl mb-2 animate-bounce">
+                                        <span>🐝</span> <span>⛵</span> <span>🗺️</span> <span>🏰</span>
+                                    </div>
+                                    <h2 className="font-game font-extrabold text-3xl sm:text-5xl text-amber-400 drop-shadow-md mb-2">
+                                        PETUALANGAN SEJARAH NUSANTARA
+                                    </h2>
+                                    <p className="text-xl sm:text-2xl font-bold text-sky-300 mb-2">
+                                        Misi Melawan Penjajahan Belanda
+                                    </p>
+                                    <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto">
+                                        Game interaktif sejarah berbasis sensor gerak jari telunjuk kamera. Bantu pahlawan Nusantara menyelesaikan 5 misi perjuangan!
+                                    </p>
+                                </div>
+
+                                {/* Mode Selectors */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl w-full">
+                                    <button
+                                        onClick={() => startNewGame('INDIVIDUAL')}
+                                        className="bg-gradient-to-b from-amber-400 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-slate-950 p-6 rounded-3xl font-game font-bold text-2xl shadow-xl transform active:scale-95 transition flex flex-col items-center border-4 border-amber-300"
+                                    >
+                                        <span className="text-4xl mb-1">🧑‍🎓</span>
+                                        <span>PETUALANGAN INDIVIDU</span>
+                                        <span className="text-xs font-normal mt-1 text-slate-900 opacity-90">1 Pemain • Selesaikan 5 Level Misi</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => startNewGame('CLASS_CHALLENGE')}
+                                        className="bg-gradient-to-b from-sky-500 to-blue-700 hover:from-sky-400 hover:to-blue-600 text-white p-6 rounded-3xl font-game font-bold text-2xl shadow-xl transform active:scale-95 transition flex flex-col items-center border-4 border-sky-300"
+                                    >
+                                        <span className="text-4xl mb-1">👥</span>
+                                        <span>TANTANGAN KELAS</span>
+                                        <span className="text-xs font-normal mt-1 text-sky-100">2 Tim Bergantian • Skor Kelas IFP</span>
+                                    </button>
+                                </div>
+
+                                {/* Bottom Action Row */}
+                                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                                    <button
+                                        onClick={toggleCamera}
+                                        className={`px-6 py-3 rounded-2xl font-bold text-sm sm:text-base flex items-center space-x-2 shadow-lg transition ${
+                                            cameraActive ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'
+                                        }`}
+                                    >
+                                        <span className="text-xl">📷</span>
+                                        <span>{cameraActive ? 'Kamera Sudah Aktif' : 'Aktifkan Sensor Kamera'}</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setShowInstructions(true)}
+                                        className="px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 rounded-2xl font-bold text-sm sm:text-base flex items-center space-x-2 shadow-lg transition"
+                                    >
+                                        <span className="text-xl">❓</span>
+                                        <span>Petunjuk Permainan</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 2. PLAYING QUESTION SCREEN */}
+                        {gameState === 'PLAYING' && (
+                            <div className="w-full flex flex-col items-center space-y-4">
+                                {/* Level & Progress Header Bar */}
+                                <div className="w-full bg-slate-800/80 border border-slate-700 p-4 rounded-2xl backdrop-blur flex flex-wrap items-center justify-between gap-3 shadow-md">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 font-game font-bold text-xl flex items-center justify-center shadow">
+                                            {currentLevelNum}
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-bold text-amber-400 tracking-wider uppercase">{currentQ.levelTitle}</span>
+                                            <div className="text-xs text-slate-300">Soal {currentQuestionIdx + 1} dari 15</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Score / Turn Status */}
+                                    {gameMode === 'INDIVIDUAL' ? (
+                                        <div className="flex items-center space-x-2 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-700">
+                                            <span className="text-amber-400 font-bold text-sm sm:text-base">⭐ SKOR:</span>
+                                            <span className="font-game font-extrabold text-2xl text-yellow-400">{score}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center space-x-4 bg-slate-900/90 px-4 py-1.5 rounded-xl border border-slate-700 text-xs sm:text-sm">
+                                            <div className={`px-3 py-1 rounded-lg font-bold ${currentTurn === 'team1' ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300' : 'text-slate-400'}`}>
+                                                {teamNames.team1}: {teamScores.team1}
+                                            </div>
+                                            <span className="text-slate-600 font-bold">VS</span>
+                                            <div className={`px-3 py-1 rounded-lg font-bold ${currentTurn === 'team2' ? 'bg-sky-500 text-white ring-2 ring-sky-300' : 'text-slate-400'}`}>
+                                                {teamNames.team2}: {teamScores.team2}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Question Card Box */}
+                                <div className="w-full bg-gradient-to-b from-slate-800 to-slate-850 border-2 border-amber-500/40 p-6 sm:p-8 rounded-3xl shadow-2xl text-center relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-sky-500 to-amber-500" />
+                                    
+                                    <span className="inline-block bg-amber-500/20 text-amber-300 text-xs font-bold px-3 py-1 rounded-full mb-3 border border-amber-500/30">
+                                        PERTANYAAN SEJARAH KELAS VI SD
+                                    </span>
+                                    
+                                    <h2 className="font-bold text-xl sm:text-3xl text-white leading-relaxed max-w-4xl mx-auto">
+                                        "{currentQ.question}"
+                                    </h2>
+
+                                    {/* Interaction Hint */}
+                                    <p className="mt-3 text-xs sm:text-sm text-amber-200/80 font-medium flex items-center justify-center space-x-1">
+                                        <span>👈</span>
+                                        <span>Arahkan telunjuk ke lebah jawaban & tahan selama 1 detik</span>
+                                    </p>
+                                </div>
+
+                                {/* Answer Options (3 Big Bee Interactive Cards) */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 w-full pt-2">
+                                    {currentQ.options.map((optionText, idx) => {
+                                        const letter = String.fromCharCode(65 + idx);
+                                        const isHovered = targetedBee === idx;
+                                        const isSelected = selectedOption === idx;
+
+                                        let cardStyle = "bg-slate-800/90 border-slate-700 hover:border-amber-400 text-slate-100";
+                                        let optionState = null;
+
+                                        if (isSelected) {
+                                            if (feedbackState === 'correct') {
+                                                cardStyle = "bg-emerald-950/90 border-emerald-500 text-emerald-100 ring-4 ring-emerald-400/50";
+                                                optionState = 'correct';
+                                            } else if (feedbackState === 'wrong') {
+                                                cardStyle = "bg-rose-950/90 border-rose-500 text-rose-100 ring-4 ring-rose-400/50";
+                                                optionState = 'wrong';
+                                            }
+                                        } else if (isHovered) {
+                                            cardStyle = "bg-slate-750 border-amber-400 ring-4 ring-amber-400/40 text-amber-200 scale-105 shadow-2xl";
+                                        }
+
+                                        return (
+                                            <div
+                                                key={idx}
+                                                ref={el => answerCardsRef.current[idx] = el}
+                                                onClick={() => handleSelectAnswer(idx)}
+                                                className={`cursor-pointer rounded-3xl p-5 border-4 transition-all duration-200 flex flex-col items-center justify-between min-h-[220px] relative overflow-hidden shadow-xl ${cardStyle}`}
+                                            >
+                                                {/* Top Bee Graphic */}
+                                                <BeeIcon letter={letter} isSelected={isHovered} state={optionState} />
+
+                                                {/* Answer Option Text */}
+                                                <div className="mt-3 w-full text-center">
+                                                    <p className="font-bold text-base sm:text-lg leading-snug">
+                                                        {optionText}
+                                                    </p>
+                                                </div>
+
+                                                {/* Hover Progress Ring Indicator */}
+                                                {isHovered && (
+                                                    <div className="mt-2 text-xs font-bold text-amber-300 animate-pulse flex items-center space-x-1">
+                                                        <span>⏱️</span>
+                                                        <span>Tahan Jari Telunjuk ({Math.round(dwellProgress)}%)</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. EXPLANATION MODAL */}
+                        {gameState === 'EXPLANATION' && (
+                            <div className="w-full max-w-2xl bg-slate-800 border-4 border-amber-500 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6 animate-float">
+                                <div className="flex justify-center text-5xl">
+                                    {feedbackState === 'correct' ? '🎉' : '💡'}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className={`font-game font-extrabold text-3xl ${feedbackState === 'correct' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                        {feedbackState === 'correct' ? 'HEBAT! JAWABANMU BENAR!' : 'BELUM TEPAT, AYO PELAJARI!'}
+                                    </h3>
+                                    <p className="text-slate-300 text-sm sm:text-base">
+                                        Jawaban yang benar adalah: <span className="text-amber-300 font-bold">{currentQ.options[currentQ.correctIndex]}</span>
+                                    </p>
+                                </div>
+
+                                <div className="bg-slate-900 p-5 rounded-2xl border border-slate-700 text-left">
+                                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-1">📖 Penjelasan Sejarah:</span>
+                                    <p className="text-slate-200 text-sm sm:text-base leading-relaxed">
+                                        {currentQ.explanation}
+                                    </p>
+                                </div>
+
+                                <button
+                                    onClick={handleNextQuestion}
+                                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 py-4 rounded-2xl font-game font-bold text-xl shadow-xl transform active:scale-95 transition"
+                                >
+                                    LANJUT KE SOAL BERIKUTNYA ➔
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 4. LEVEL WIN MODAL */}
+                        {gameState === 'LEVEL_WIN' && (
+                            <div className="w-full max-w-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-4 border-emerald-500 rounded-3xl p-8 shadow-2xl text-center space-y-6">
+                                <div className="text-6xl animate-bounce">🏆</div>
+                                <h3 className="font-game font-extrabold text-3xl sm:text-4xl text-emerald-400">
+                                    MISI {currentLevelNum} SELESAI!
+                                </h3>
+                                <p className="text-slate-200 text-lg">
+                                    Selamat! Kamu berhasil menyelesaikan semua pertanyaan di level ini dengan sangat baik.
+                                </p>
+                                <button
+                                    onClick={() => setGameState('PLAYING')}
+                                    className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-game font-bold text-xl rounded-2xl shadow-xl transform active:scale-95 transition"
+                                >
+                                    MULAI LEVEL BERIKUTNYA ➔
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 5. GAME OVER / CERTIFICATE SCREEN */}
+                        {gameState === 'GAME_OVER' && (
+                            <div className="w-full max-w-3xl bg-slate-800 border-4 border-amber-500 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6">
+                                <div className="text-6xl animate-bounce">👑</div>
+                                <h2 className="font-game font-extrabold text-3xl sm:text-5xl text-amber-400">
+                                    PETUALANGAN SELESAI!
+                                </h2>
+
+                                {/* Score Summary */}
+                                {gameMode === 'INDIVIDUAL' ? (
+                                    <div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                                        <div>
+                                            <span className="text-xs text-slate-400 block">TOTAL SKOR</span>
+                                            <span className="font-game text-3xl text-yellow-400 font-bold">{score}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-slate-400 block">BENAR</span>
+                                            <span className="font-game text-3xl text-emerald-400 font-bold">{stats.correct}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-slate-400 block">SALAH</span>
+                                            <span className="font-game text-3xl text-rose-400 font-bold">{stats.incorrect}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-slate-400 block">AKURASI</span>
+                                            <span className="font-game text-3xl text-sky-400 font-bold">{Math.round((stats.correct / 15) * 100)}%</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 space-y-4">
+                                        <h3 className="font-bold text-amber-400 text-lg">HASIL TANTANGAN KELAS</h3>
+                                        <div className="flex justify-around items-center">
+                                            <div className="text-center">
+                                                <div className="text-slate-300 font-bold">{teamNames.team1}</div>
+                                                <div className="font-game text-4xl text-amber-400 font-extrabold">{teamScores.team1} Pts</div>
+                                            </div>
+                                            <div className="text-2xl font-bold text-slate-500">VS</div>
+                                            <div className="text-center">
+                                                <div className="text-slate-300 font-bold">{teamNames.team2}</div>
+                                                <div className="font-game text-4xl text-sky-400 font-extrabold">{teamScores.team2} Pts</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-emerald-400 font-bold text-lg pt-2 border-t border-slate-800">
+                                            {teamScores.team1 > teamScores.team2 ? `🎉 PEMENANG: ${teamNames.team1}!` : teamScores.team2 > teamScores.team1 ? `🎉 PEMENANG: ${teamNames.team2}!` : "🤝 HASIL SERI! KEDUA TIM HEBAT!"}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Badge Earned */}
+                                <div className="bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 p-4 rounded-2xl border border-amber-500/40">
+                                    <span className="text-xs text-amber-300 font-bold uppercase tracking-wider block">Gelar Penjelajah Sejarah:</span>
+                                    <span className="font-game text-2xl text-amber-400 font-bold">{getBadgeTitle(score)}</span>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+                                    <button
+                                        onClick={() => startNewGame(gameMode)}
+                                        className="px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-game font-bold text-lg rounded-2xl shadow-lg transform active:scale-95 transition flex items-center space-x-2"
+                                    >
+                                        <span>🔄</span> <span>MAIN LAGI</span>
+                                    </button>
+
+                                    <button
+                                        onClick={downloadHTMLFile}
+                                        className="px-6 py-3.5 bg-sky-600 hover:bg-sky-500 text-white font-game font-bold text-lg rounded-2xl shadow-lg transform active:scale-95 transition flex items-center space-x-2"
+                                    >
+                                        <span>💾</span> <span>UNDUH FILE HTML GAME</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setGameState('START')}
+                                        className="px-6 py-3.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-game font-bold text-lg rounded-2xl shadow-lg transform active:scale-95 transition"
+                                    >
+                                        MENU UTAMA
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                    </main>
+
+                    {/* INSTRUCTIONS MODAL */}
+                    {showInstructions && (
+                        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-slate-800 border-2 border-amber-500 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                                <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+                                    <h3 className="font-game font-bold text-2xl text-amber-400 flex items-center space-x-2">
+                                        <span>📜</span> <span>PETUNJUK PERMAINAN</span>
+                                    </h3>
+                                    <button onClick={() => setShowInstructions(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
+                                </div>
+
+                                <div className="space-y-3 text-sm text-slate-200 leading-relaxed">
+                                    <div className="flex items-start space-x-3 bg-slate-900 p-3 rounded-xl">
+                                        <span className="text-2xl">📷</span>
+                                        <div>
+                                            <strong className="text-amber-300 block">1. Menggunakan Kamera & Ujung Jari Telunjuk</strong>
+                                            Aktifkan kamera lalu arahkan satu tangan ke depan layar. Gerakkan kursor kuning dengan menggerakkan ujung jari telunjuk (landmark #8).
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start space-x-3 bg-slate-900 p-3 rounded-xl">
+                                        <span className="text-2xl">🐝</span>
+                                        <div>
+                                            <strong className="text-amber-300 block">2. Memilih Lebah Jawaban</strong>
+                                            Arahkan kursor lingkaran kuning ke salah satu lebah pilihan (A, B, atau C). Tahan posisi jari selama 1 detik sampai lingkaran hitung mundur penuh.
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start space-x-3 bg-slate-900 p-3 rounded-xl">
+                                        <span className="text-2xl">🖱️</span>
+                                        <div>
+                                            <strong className="text-amber-300 block">3. Mode Alternatif Touch / Mouse</strong>
+                                            Jika perangkat tidak memiliki kamera atau sensor dinonaktifkan, siswa tetap bisa memilih lebah jawaban langsung dengan klik mouse atau sentuhan layar IFP/tablet.
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start space-x-3 bg-slate-900 p-3 rounded-xl">
+                                        <span className="text-2xl">🏆</span>
+                                        <div>
+                                            <strong className="text-amber-300 block">4. Sistem Skor & Misi Sejarah</strong>
+                                            Setiap jawaban benar memberikan +100 poin. Terdapat 15 soal seputar materi VOC, Tanam Paksa, Politik Etis, dan Pahlawan Sejarah SD Kelas VI.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => setShowInstructions(false)}
+                                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 py-3 rounded-2xl font-game font-bold text-lg transition"
+                                >
+                                    SAYA MENGERTI, SIAP BERMAIN!
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* FOOTER */}
+                    <footer className="bg-slate-950/80 border-t border-slate-800 py-3 px-4 text-center text-xs text-slate-400 z-20">
+                        PETUALANGAN SEJARAH NUSANTARA — Media Pembelajaran Interaktif Kelas VI SD • Sensor Gerak Kamera Web Real-Time
+                    </footer>
+                </div>
+            );
+        }
+
+        // Render Application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<NusantaraApp />);
+    </script>
+</body>
+</html>
